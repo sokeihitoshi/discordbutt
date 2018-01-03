@@ -65,6 +65,9 @@ async def decay_timer():
     channel = discord.Object(id='channel_id_here')
     while not client.is_closed:
         await asyncio.sleep(604800)
+        results = users.find({"last_updated" : { "$lte" : datetime.datetime.utcnow() - datetime.timedelta(days = 7)}})
+        for result in results:
+            apply_decay(result['name'], datetime.datetime.utcnow() - result['last_updated'], result['decay_penalty'], results['points'])
         await client.send_message(channel, "Applying decay, please wait warmly.")
 
 
