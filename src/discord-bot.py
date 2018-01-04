@@ -9,13 +9,14 @@ from random import *
 import re
 
 
-username = 'USER_NAME_GOES_HERE'
-password = 'PASS_WORD_GOES_HERE'
+username = 'MONGO_USER'
+password = 'MONGO_PASS'
 client = discord.Client()
 mClient = MongoClient('mongodb://%s:%s@127.0.0.1' % (username, password))
 smash = pysmash.SmashGG()
 mDb = mClient["database"]
 users = mDb['users']
+auth = mDb['discord_auth']
 tourneys = mDb['tourney']
 placement = ['First','Second','Third']
 
@@ -83,68 +84,74 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content.startswith('!decay'):
-        results = users.find({"last_updated" : { "$lte" : datetime.datetime.utcnow() - datetime.timedelta(days = 7)}})
-        for result in results:
-            apply_decay(result['name'], datetime.datetime.utcnow() - result['last_updated'], result['decay_penalty'], results['points'])
-        await client.send_message(message.channel, "Applied decay to " + len(results) + " users.")
-    if message.content.startswith('!ranking'):
-        results = users.find(batch_size=10).sort('points', pymongo.DESCENDING)
-        em=discord.Embed(title="Rankings", description="Ranking by Points")
-        for result in results:
-            em.add_field(name=result['name'],value=result['points'],inline=False)
-        await client.send_message(message.channel, embed=em)
-    if message.content.startswith('!process'):
-        parts = message.content.split(" ")
-        tournament = parts[1]
-        game = parts[2]
-        try:
-            players = smash.tournament_show_players(tournament,game)
-            for player in players:
-                user = users.find_one({"name" : player['tag']});
-                fPlacement = player['final_placement']
-                points = 0;
-                if fPlacement < 9:
-                    points = rewards[fPlacement - 1]
-                if user:
-                    adjustment = adjust_reward(fPlacement, user['last_placement'])
-                    points = points + adjustment
-                    if points < 0:
-                        points = 0
-                    addpoints(player['tag'], points)
-                else:
-                    payload = {'name' : player['tag'], 'last_updated' : datetime.datetime.utcnow(), 'points' : points, 'last_placement' : fPlacement, 'decay_penalty': 0}
-                    users.insert_one(payload)
-            await client.send_message(message.channel, "Done.")
-        except pysmash.exceptions.ValidationError as e:
-            a = re.search("\[(.*?)\]",e.args[0])
-            await  client.send_message(message.channel, "Game not found, valid games are: " + a.group(1) + ".")
-        except pysmash.exceptions.ResponseError:
-            await client.send_message(message.channel, "Tournament not found.")
-    if message.content.startswith('!tourney'):
-        parts = message.content.split(" ")
-        tournament = parts[1]
-        game = parts[2]
-        try:
-            players = smash.tournament_show_players(tournament,game)
-            em=discord.Embed(title="Results for " + tournament, description="Results for " + game)
-            for x in range(1,4):
-                player = search_dictionaries('final_placement',x,players)[0]
-                if player:
-                    tag = player["tag"]
-                else:
-                    tag = "Not Found"
-                em.add_field(name=placement[x - 1],value=tag,inline=False)
+    user = message.author.id
+    server = message.server.id
+    uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
+    if (uauth):
+        if message.content.startswith('!test'):
+            await client.send_message(message.channel, "Authenticate Okay!")
+        if message.content.startswith('!decay'):
+            results = users.find({"last_updated" : { "$lte" : datetime.datetime.utcnow() - datetime.timedelta(days = 7)}})
+            for result in results:
+                apply_decay(result['name'], datetime.datetime.utcnow() - result['last_updated'], result['decay_penalty'], results['points'])
+            await client.send_message(message.channel, "Applied decay to " + len(results) + " users.")
+        if message.content.startswith('!ranking'):
+            results = users.find(batch_size=10).sort('points', pymongo.DESCENDING)
+            em=discord.Embed(title="Rankings", description="Ranking by Points")
+            for result in results:
+                em.add_field(name=result['name'],value=result['points'],inline=False)
             await client.send_message(message.channel, embed=em)
-        except pysmash.exceptions.ValidationError as e:
-            a = re.search("\[(.*?)\]",e.args[0])
-            await  client.send_message(message.channel, "Game not found, valid games are: " + a.group(1) + ".")
-        except pysmash.exceptions.ResponseError:
-            await client.send_message(message.channel, "Tournament not found.")
+        if message.content.startswith('!process'):
+            parts = message.content.split(" ")
+            tournament = parts[1]
+            game = parts[2]
+            try:
+                players = smash.tournament_show_players(tournament,game)
+                for player in players:
+                    user = users.find_one({"name" : player['tag']});
+                    fPlacement = player['final_placement']
+                    points = 0;
+                    if fPlacement < 9:
+                        points = rewards[fPlacement - 1]
+                    if user:
+                        adjustment = adjust_reward(fPlacement, user['last_placement'])
+                        points = points + adjustment
+                        if points < 0:
+                            points = 0
+                        addpoints(player['tag'], points)
+                    else:
+                        payload = {'name' : player['tag'], 'last_updated' : datetime.datetime.utcnow(), 'points' : points, 'last_placement' : fPlacement, 'decay_penalty': 0}
+                        users.insert_one(payload)
+                await client.send_message(message.channel, "Done.")
+            except pysmash.exceptions.ValidationError as e:
+                a = re.search("\[(.*?)\]",e.args[0])
+                await  client.send_message(message.channel, "Game not found, valid games are: " + a.group(1) + ".")
+            except pysmash.exceptions.ResponseError:
+                await client.send_message(message.channel, "Tournament not found.")
+        if message.content.startswith('!tourney'):
+            parts = message.content.split(" ")
+            tournament = parts[1]
+            game = parts[2]
+            try:
+                players = smash.tournament_show_players(tournament,game)
+                em=discord.Embed(title="Results for " + tournament, description="Results for " + game)
+                for x in range(1,4):
+                    player = search_dictionaries('final_placement',x,players)[0]
+                    if player:
+                        tag = player["tag"]
+                    else:
+                        tag = "Not Found"
+                    em.add_field(name=placement[x - 1],value=tag,inline=False)
+                await client.send_message(message.channel, embed=em)
+            except pysmash.exceptions.ValidationError as e:
+                a = re.search("\[(.*?)\]",e.args[0])
+                await  client.send_message(message.channel, "Game not found, valid games are: " + a.group(1) + ".")
+            except pysmash.exceptions.ResponseError:
+                await client.send_message(message.channel, "Tournament not found.")
 
 
             
             
 
 client.loop.create_task(decay_timer())
-client.run('TOKEN_GOES_HERE')
+client.run('INSERT_TOKEN_HERE')
