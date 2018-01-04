@@ -8,8 +8,11 @@ import datetime
 from random import *
 import re
 
+
+username = 'USER_NAME_GOES_HERE'
+password = 'PASS_WORD_GOES_HERE'
 client = discord.Client()
-mClient = MongoClient()
+mClient = MongoClient('mongodb://%s:%s@127.0.0.1' % (username, password))
 smash = pysmash.SmashGG()
 mDb = mClient["database"]
 users = mDb['users']
@@ -144,4 +147,4 @@ async def on_message(message):
             
 
 client.loop.create_task(decay_timer())
-client.run('TOKEN GOES HERE')
+client.run('TOKEN_GOES_HERE')
