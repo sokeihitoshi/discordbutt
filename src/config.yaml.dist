@@ -1,0 +1,6 @@
+mongodb:
+    host: localhost
+    user: root
+    password: my secret password
+discord:
+    token: secret_token

@@ -7,16 +7,19 @@ from pymongo import MongoClient
 import datetime
 from random import *
 import re
+import yaml
 
-
-username = 'MONGO_USER'
-password = 'MONGO_PASS'
+with open("config.yaml", 'r') as ymlfile:
+    cfg = yaml.load(ymlfile)
+username = cfg['mongodb']['user']
+password = cfg['mongodb']['password']
 client = discord.Client()
 mClient = MongoClient('mongodb://%s:%s@127.0.0.1' % (username, password))
 smash = pysmash.SmashGG()
 mDb = mClient["database"]
 users = mDb['users']
 auth = mDb['discord_auth']
+chars = mDb['characters']
 tourneys = mDb['tourney']
 placement = ['First','Second','Third']
 
@@ -26,26 +29,10 @@ penalty = [0,1,4,6,10]
 idle_penalty = [0, -9, -18, -36, -99];
 
 
+
+
 def search_dictionaries(key, value, list_of_dictionaries):
     return [element for element in list_of_dictionaries if element[key] == value]
-
-def adjust_reward(current_placement, last_placement):
-    adjustment = 0;
-    if (current_placement == last_placement and current_placement == 1):
-        adjustment = 3
-    elif (current_placement < last_placement or last_placement > 7 or current_placement > 7):
-        adjustment = 0
-    else:
-        if (current_placement == 7):
-            current_placement = 5
-        elif (current_placement == 5):
-            current_placement = 4
-        if (last_placement == 7):
-            last_placement = 5
-        elif (last_placement == 5):
-            last_placement = 4
-        adjustment = penalty[(current_placement - last_placement) - 1]
-    return adjustment
 
 def add_points(name, amount, current_placement, last_placement):
     if (current_placement == 1 and lastplacement == current_placement):
@@ -87,6 +74,35 @@ async def on_message(message):
     user = message.author.id
     server = message.server.id
     uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
+    if message.content.startswith('!framedata'):
+        parts = message.content.split(" ")
+        character = parts[1]
+        if (len(parts) > 2):
+            move = parts[2]
+            result = chars.find_one( { "$and": [ { "name": character },  { "move": move } ] })
+            if (result):
+                em=discord.Embed(title=character, description=move)
+                em.add_field(name="Start Up", value=result['start_up'])
+                em.add_field(name="Active", value=result['active'])
+                em.add_field(name="Recovery", value=result['recovery'])
+                em.add_field(name="Frame Advantage", value=result['fram_adv'])
+                em.add_field(name="Attribute", value=result['attribute'])
+                em.add_field(name="Damage", value=result['damage'])
+                await client.send_message(message.channel, embed=em)
+            else:
+                await client.send_message(message.channel, "Move not found")
+        else:
+            results = chars.find({"name": character})
+            if (results): 
+                for result in result:
+                    em=discord.Embed(title=character, description=move)
+                    em.add_field(name="Start Up", value=result['start_up'])
+                    em.add_field(name="Active", value=result['active'])
+                    em.add_field(name="Recovery", value=result['recovery'])
+                    em.add_field(name="Frame Advantage", value=result['fram_adv'])
+                    em.add_field(name="Attribute", value=result['attribute'])
+                    em.add_field(name="Damage", value=result['damage'])
+                    await client.send_message(message.author, embed=em)                 
     if (uauth):
         if message.content.startswith('!test'):
             await client.send_message(message.channel, "Authenticate Okay!")
@@ -114,8 +130,7 @@ async def on_message(message):
                     if fPlacement < 9:
                         points = rewards[fPlacement - 1]
                     if user:
-                        adjustment = adjust_reward(fPlacement, user['last_placement'])
-                        points = points + adjustment
+                        points = points
                         if points < 0:
                             points = 0
                         addpoints(player['tag'], points)
@@ -154,4 +169,4 @@ async def on_message(message):
             
 
 client.loop.create_task(decay_timer())
-client.run('INSERT_TOKEN_HERE')
+client.run(cfg['discord']['token'])
