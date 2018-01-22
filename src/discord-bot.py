@@ -26,8 +26,8 @@ placement = ['First','Second','Third']
 #Todo: Move this to a config
 rewards = [12,8,4,3,3,1,1]
 penalty = [0,1,4,6,10]
-idle_penalty = [0, -9, -18, -36, -99];
-
+allowed_platforms = ['xbox360','ps4','pc']
+queue = {'xbox360':'','ps4':'','pc':''}
 
 
 
@@ -35,21 +35,19 @@ def search_dictionaries(key, value, list_of_dictionaries):
     return [element for element in list_of_dictionaries if element[key] == value]
 
 def add_points(name, amount, current_placement, last_placement):
-    if (current_placement == 1 and lastplacement == current_placement):
-        amount = amount + 3;
     users.update_one({"name" : name}, {"$inc":{"points" : amount }})
     users.update_one({"name" : name}, {"$set":{"last_updated" : datetime.datetime.utcnow()}})
 
 def apply_decay(name, days_idle, current_penalty, current_points):
-    penalty = math.floor(days_idle/7) > 5
-    if (penalty > 5):
-        penalty = 5
+    penalty = math.floor(days_idle/7)
+    if (penalty > 7):
+        penalty = 7
     if (penalty > current_penalty):
         users.update_one({"name" : name}, {"$set":{"decay_penalty" : penalty}})
-        amount = idle_penalty[penalty - 1]
+        amount = math.floor(current_points * ( 1 - (0.1 * (penalty - 1))))
         if (amount > current_points):
             amount = -current_points
-        users.update_one({"name" : name}, {"$inc":{"points" : amount }})
+        users.update_one({"name" : name}, {"$set":{"points" : amount }})
 
 async def decay_timer():
     await client.wait_until_ready()
@@ -102,7 +100,20 @@ async def on_message(message):
                     em.add_field(name="Frame Advantage", value=result['fram_adv'])
                     em.add_field(name="Attribute", value=result['attribute'])
                     em.add_field(name="Damage", value=result['damage'])
-                    await client.send_message(message.author, embed=em)                 
+                    await client.send_message(message.author, embed=em)
+    if message.content.startswith('!queue'):
+        parts = message.content.split(" ")
+        system = parts[1]
+        if system in allowed_platforms:
+            if queue[system]:
+                player = queue[system]
+                queue[system] = None
+                await client.send_message(message.channel, "Hey, <@" + player + ">, someone is available to fight you!")
+            else:
+                queue[system] = user
+                await client.send_message(message.channel, "Waiting for a challenge for " + message.author.nick + ".")
+        else:
+            await client.send_message(message.channel, "That is not a valid system.  Usage is !queue (ps4, xbox360, pc)")
     if (uauth):
         if message.content.startswith('!test'):
             await client.send_message(message.channel, "Authenticate Okay!")
