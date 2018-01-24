@@ -21,14 +21,14 @@ users = mDb['users']
 auth = mDb['discord_auth']
 chars = mDb['characters']
 tourneys = mDb['tourney']
-placement = ['First','Second','Third']
 
 #Todo: Move this to a config
-rewards = [12,8,4,3,3,1,1]
-penalty = [0,1,4,6,10]
+rewards = [200,160,130,100,70,40,20,10,5,1]
 allowed_platforms = ['xbox360','ps4','pc']
-queue = {'xbox360':'','ps4':'','pc':''}
-
+allowed_regions = ['West Coast','East Coast','Oceania','South America','Asia','Middle East','Europe']
+queue = {'ps4': {'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''},
+'xbox360':{'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''},
+'pc':{'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''}}
 
 
 def search_dictionaries(key, value, list_of_dictionaries):
@@ -72,6 +72,8 @@ async def on_message(message):
     user = message.author.id
     server = message.server.id
     uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
+    if message.content.startswith('!help'):
+        await client.send_message(message.channel, "```Commands: \n!help: shows you this \n!queue [region]: queues you for selected region (please only use in platform specific channels)\n!framedata [character] [optional:move]: gets framedata (not ready yet)```")
     if message.content.startswith('!framedata'):
         parts = message.content.split(" ")
         character = parts[1]
@@ -91,8 +93,8 @@ async def on_message(message):
                 await client.send_message(message.channel, "Move not found")
         else:
             results = chars.find({"name": character})
-            if (results): 
-                for result in result:
+            if (results.count()): 
+                for result in results:
                     em=discord.Embed(title=character, description=move)
                     em.add_field(name="Start Up", value=result['start_up'])
                     em.add_field(name="Active", value=result['active'])
@@ -101,19 +103,35 @@ async def on_message(message):
                     em.add_field(name="Attribute", value=result['attribute'])
                     em.add_field(name="Damage", value=result['damage'])
                     await client.send_message(message.author, embed=em)
-    if message.content.startswith('!queue'):
-        parts = message.content.split(" ")
-        system = parts[1]
-        if system in allowed_platforms:
-            if queue[system]:
-                player = queue[system]
-                queue[system] = None
-                await client.send_message(message.channel, "Hey, <@" + player + ">, someone is available to fight you!")
             else:
-                queue[system] = user
-                await client.send_message(message.channel, "Waiting for a challenge for " + message.author.nick + ".")
+                await client.send_message(message.channel, "Who is " + character + "?")
+    if message.content.startswith('!queue'):
+        platform = message.channel.name
+        parts = message.content.split(" ")
+        if len(parts) > 1 and platform in allowed_platforms:
+            country = parts[1]
+            region_found = False
+            if country in allowed_regions:
+                region_found = True
+            elif  len(parts) > 2:
+                country = parts[1] + " " + parts[2]
+                if country in allowed_regions:
+                    region_found = True
+            if platform in allowed_platforms and region_found:
+                if queue[platform][country]:
+                    player = queue[platform][country]
+                    if player == user:
+                        await client.send_message(message.channel, "Hey,  Past <@" + player + ">, Future <@" + user + "> wants to fight you!")
+                    else:
+                        queue[platform][country] = None
+                        await client.send_message(message.channel, "Hey, <@" + player + ">, <@" + user + "> is available to fight you!")
+                else:
+                    queue[platform][country] = user
+                    await client.send_message(message.channel, "Waiting for a challenge for " + message.author.nick + ".")
+            else:
+                await client.send_message(message.channel, "That is not a valid region.  Usage is !queue [West Coast, East Coast, South America, Oceania, Asia, Middle East, Europe]")
         else:
-            await client.send_message(message.channel, "That is not a valid system.  Usage is !queue (ps4, xbox360, pc)")
+            await client.send_message(message.channel, "What kind of platform is " + platform + "?  Please only use in the appropriate channel!")
     if (uauth):
         if message.content.startswith('!test'):
             await client.send_message(message.channel, "Authenticate Okay!")
@@ -179,5 +197,5 @@ async def on_message(message):
             
             
 
-client.loop.create_task(decay_timer())
+#client.loop.create_task(decay_timer())
 client.run(cfg['discord']['token'])
