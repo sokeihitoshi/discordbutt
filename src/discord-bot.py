@@ -134,13 +134,17 @@ async def on_message(message):
                         name = message.author.name
                     await client.send_message(message.channel, "Waiting for a challenge for " + name + ".")
             elif platform in allowed_platforms and country == 'cancel':
+                found = False
+                name = message.author.nick
+                if not name:
+                    name = message.author.name
                 for region, player in queue[platform].items():
                     if player == user:
+                        found = True
                         queue[platform][region] = None
-                        name = message.author.nick
-                        if not name:
-                            name = message.author.name
                         await client.send_message(message.channel, "Removed " + name + " from the " + region + " queue.")
+                if not found:
+                    await client.send_message(message.channel, "Hey, " + name + " you're not actually queued for anything.")
             else:
                 await client.send_message(message.channel, "That is not a valid region.  Usage is !queue [West Coast, East Coast, South America, Oceania, Asia, Middle East, Europe] or !queue cancel to leave the queue")
         elif not platform in allowed_platforms:
