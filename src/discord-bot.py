@@ -75,7 +75,7 @@ async def on_message(message):
     server = message.server.id
     uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
     if message.content.startswith('!help'):
-        await client.send_message(message.channel, "```Commands: \n!help: shows you this \n!queue [region]: queues you for selected region (please only use in platform specific channels)\n!framedata [character] [optional:move]: gets framedata (not ready yet)```")
+        await client.send_message(message.channel, "```Commands: \n!help: shows you this \n!queue [region or cancel]: queues you for selected region (please only use in platform specific channels)\n!framedata [character] [optional:move]: gets framedata (not ready yet)```")
     if message.content.startswith('!framedata'):
         parts = message.content.split(" ")
         character = parts[1]
@@ -132,13 +132,17 @@ async def on_message(message):
                     name = message.author.nick
                     if not name:
                         name = message.author.name
-                    await client.send_message(message.channel, "Waiting for a challenge for " + message.author.nick + ".")
+                    await client.send_message(message.channel, "Waiting for a challenge for " + name + ".")
             elif platform in allowed_platforms and country == 'cancel':
                 for region, player in queue[platform].items():
                     if player == user:
                         queue[platform][region] = None
+                        name = message.author.nick
+                        if not name:
+                            name = message.author.name
+                        await client.send_message(message.channel, "Removed " + name + " from the " + region + " queue.")
             else:
-                await client.send_message(message.channel, "That is not a valid region.  Usage is !queue [West Coast, East Coast, South America, Oceania, Asia, Middle East, Europe]")
+                await client.send_message(message.channel, "That is not a valid region.  Usage is !queue [West Coast, East Coast, South America, Oceania, Asia, Middle East, Europe] or !queue cancel to leave the queue")
         elif not platform in allowed_platforms:
             await client.send_message(message.channel, "What kind of platform is " + platform + "?  Please only use in the appropriate channel!")
         else:
