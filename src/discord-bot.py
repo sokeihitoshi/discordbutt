@@ -26,10 +26,10 @@ tourneys = mDb['tourney']
 
 #Todo: Move this to a config
 rewards = [200,160,130,100,70,40,20,10,5,1]
-allowed_platforms = ['xbox360','ps4','pc']
+allowed_platforms = ['xbox','ps4','pc']
 allowed_regions = ['West Coast','East Coast','Oceania','South America','Asia','Middle East','Europe']
 queue = {'ps4': {'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''},
-'xbox360':{'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''},
+'xbox':{'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''},
 'pc':{'West Coast':'','East Coast':'','Oceania':'','South America':'','Asia':'','Middle East':'','Europe':''}}
 
 
@@ -108,7 +108,7 @@ async def on_message(message):
             else:
                 await client.send_message(message.channel, "Who is " + character + "?")
     if message.content.startswith('!queue'):
-        platform = message.channel.name
+        platform = message.channel.name.lower()
         parts = message.content.split(" ")
         if len(parts) > 1 and platform in allowed_platforms:
             country = parts[1]
@@ -129,11 +129,16 @@ async def on_message(message):
                         await client.send_message(message.channel, "Hey, <@" + player + ">, <@" + user + "> is available to fight you!")
                 else:
                     queue[platform][country] = user
-                    await client.send_message(message.channel, "Waiting for a challenge for " + message.author.nick + ".")
+                    name = message.author.nick
+                    if not name:
+                        name = message.author.name
+                    await client.send_message(message.channel, "Waiting for a challenge for " + name + ".")
             else:
                 await client.send_message(message.channel, "That is not a valid region.  Usage is !queue [West Coast, East Coast, South America, Oceania, Asia, Middle East, Europe]")
-        else:
+        elif not platform in allowed_platforms:
             await client.send_message(message.channel, "What kind of platform is " + platform + "?  Please only use in the appropriate channel!")
+        else:
+            await client.send_message(message.channel, "Please see !help for proper usage.")
     if (uauth):
         if message.content.startswith('!test'):
             await client.send_message(message.channel, "Authenticate Okay!")
