@@ -72,38 +72,48 @@ async def on_ready():
 @client.event
 async def on_message(message):
     user = message.author.id
-    server = message.server.id
-    uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
+    uauth = None
+    if message.server:
+        server = message.server.id
+        uauth = auth.find_one( { "$and": [ { "user_id": user },  { "server": server } ] })
     if message.content.startswith('!help'):
         await client.send_message(message.channel, "```Commands: \n!help: shows you this \n!queue [region or cancel]: queues you for selected region (please only use in platform specific channels)\n!framedata [character] [optional:move]: gets framedata (not ready yet)```")
     if message.content.startswith('!framedata'):
         parts = message.content.split(" ")
-        character = parts[1]
+        character = parts[1].lower()
         if (len(parts) > 2):
             move = parts[2]
-            result = chars.find_one( { "$and": [ { "name": character },  { "move": move } ] })
+            result = chars.find_one( { "$and": [ { "character": character },  { "move": move } ] })
             if (result):
-                em=discord.Embed(title=character, description=move)
+                em=discord.Embed(title=character + " " + move, description=result['type'])
+                if result['properties']:
+                    properties = result['properties']
+                else:
+                    properties = "None"
                 em.add_field(name="Start Up", value=result['start_up'])
                 em.add_field(name="Active", value=result['active'])
                 em.add_field(name="Recovery", value=result['recovery'])
-                em.add_field(name="Frame Advantage", value=result['fram_adv'])
-                em.add_field(name="Attribute", value=result['attribute'])
-                em.add_field(name="Damage", value=result['damage'])
+                em.add_field(name="On Hit", value=result['on_hit'])
+                em.add_field(name="On Block", value=result['on_block'])
+                em.add_field(name="Properties", value=properties)
                 await client.send_message(message.channel, embed=em)
             else:
                 await client.send_message(message.channel, "Move not found")
         else:
-            results = chars.find({"name": character})
+            results = chars.find({"character": character})
             if (results.count()): 
                 for result in results:
-                    em=discord.Embed(title=character, description=move)
+                    em=discord.Embed(title=character + " " + result['move'], description=result['type'])
+                    if result['properties']:
+                        properties = result['properties']
+                    else:
+                        properties = "None"
                     em.add_field(name="Start Up", value=result['start_up'])
                     em.add_field(name="Active", value=result['active'])
                     em.add_field(name="Recovery", value=result['recovery'])
-                    em.add_field(name="Frame Advantage", value=result['fram_adv'])
-                    em.add_field(name="Attribute", value=result['attribute'])
-                    em.add_field(name="Damage", value=result['damage'])
+                    em.add_field(name="On Hit", value=result['on_hit'])
+                    em.add_field(name="On Block", value=result['on_block'])
+                    em.add_field(name="Properties", value=properties)
                     await client.send_message(message.author, embed=em)
             else:
                 await client.send_message(message.channel, "Who is " + character + "?")
